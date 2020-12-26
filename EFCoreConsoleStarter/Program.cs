@@ -10,6 +10,11 @@ namespace EFCoreConsoleStarter
 {
     internal class Program
     {
+        private static void AddCustomDependencies(IServiceCollection services)
+        {
+            // Add any custom dependencies here
+        }
+        
         private static int Main(string[] args)
         {
             try
@@ -30,7 +35,7 @@ namespace EFCoreConsoleStarter
                 Log.CloseAndFlush();
             }
         }
-
+        
         private static ServiceCollection ConfigureServices()
         {
             var serviceCollection = new ServiceCollection();
@@ -72,6 +77,8 @@ namespace EFCoreConsoleStarter
             // Create app
             serviceCollection.AddTransient<App>();
             Log.Information("Application instance create");
+
+            AddCustomDependencies(serviceCollection);
 
             return serviceCollection;
         }
