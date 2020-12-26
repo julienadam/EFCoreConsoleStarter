@@ -1,35 +1,24 @@
 ﻿using System;
 using System.IO;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Serilog;
 
 namespace EFCoreConsoleStarter
 {
     internal class Program
     {
-        private static int ConfiguredMain(IConfigurationRoot configuration, string[] args)
-        {
-            // Votre code ici
-            return 1;
-        }
-
         private static int Main(string[] args)
         {
-            // Initialize Serilog logger
-            Log.Logger = new LoggerConfiguration()
-                 .WriteTo.Console(Serilog.Events.LogEventLevel.Debug)
-                 .MinimumLevel.Debug()
-                 .Enrich.FromLogContext()
-                 .CreateLogger();
-
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetParent(AppContext.BaseDirectory).FullName)
-                .AddJsonFile("appsettings.json", false)
-                .Build();
-            
             try
             {
-                return ConfiguredMain(configuration, args);
+                return 
+                    ConfigureServices()
+                        .BuildServiceProvider()
+                        .GetService<App>()
+                        .Run(args);
             }
             catch (Exception ex)
             {
@@ -40,6 +29,51 @@ namespace EFCoreConsoleStarter
             {
                 Log.CloseAndFlush();
             }
+        }
+
+        private static ServiceCollection ConfigureServices()
+        {
+            var serviceCollection = new ServiceCollection();
+            
+            // Configure Serilog
+            Log.Logger = new LoggerConfiguration()
+                .WriteTo.Console(Serilog.Events.LogEventLevel.Debug)
+                .MinimumLevel.Debug()
+                .Enrich.FromLogContext()
+                .CreateLogger();
+            
+            Log.Information("Logging system initialized");
+            
+            // Add logging to IoC
+            serviceCollection.AddSingleton(LoggerFactory.Create(builder =>
+            {
+                builder
+                    .AddSerilog(dispose: true);
+            }));
+
+            serviceCollection.AddLogging();
+
+            // Initialize configuration system using json files like ASP.NET Core
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetParent(AppContext.BaseDirectory).FullName)
+                .AddJsonFile("appsettings.json", false)
+                .Build();
+
+            // Install configuration as a singleton in IoC
+            serviceCollection.AddSingleton(configuration);
+            Log.Information("Configuration loaded and available");
+
+            // Configure EntityFramework
+            serviceCollection
+                .AddDbContext<BookLibraryContext>(options =>
+                    options
+                        .UseSqlServer(configuration.GetConnectionString("DataConnection")));
+
+            // Create app
+            serviceCollection.AddTransient<App>();
+            Log.Information("Application instance create");
+
+            return serviceCollection;
         }
     }
 }
