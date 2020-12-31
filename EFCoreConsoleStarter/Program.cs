@@ -68,12 +68,9 @@ namespace EFCoreConsoleStarter
             serviceCollection.AddSingleton(configuration);
             Log.Information("Configuration loaded and available");
 
-            // Configure EntityFramework
-            serviceCollection
-                .AddDbContext<BookLibraryContext>(options =>
-                    options
-                        .UseSqlServer(configuration.GetConnectionString("DataConnection")));
-
+            var connectionString = configuration.GetConnectionString("DataConnection");
+            serviceCollection.AddContextFactory<BookLibraryContext>(connectionString);
+            
             // Create app
             serviceCollection.AddTransient<App>();
             Log.Information("Application instance create");
@@ -81,6 +78,40 @@ namespace EFCoreConsoleStarter
             AddCustomDependencies(serviceCollection);
 
             return serviceCollection;
+        }
+    }
+
+    public static class DbContextFactoryExtensions
+    {
+        public static void AddContextFactory<T>(this IServiceCollection serviceCollection, string connectionString) where T : DbContext
+        {
+            // Add the context itself, as transient
+            serviceCollection
+                .AddDbContext<T>(options =>
+                        options.UseSqlServer(connectionString), ServiceLifetime.Transient);
+            
+            // Add the factory that will create an instance on demand
+            serviceCollection.AddSingleton<IDbContextFactory<T>, DbContextFactory<T>>();
+        }
+    }
+
+    public interface IDbContextFactory<out T> where T : DbContext
+    {
+        T CreateDbContext();
+    }
+
+    public class DbContextFactory<T> : IDbContextFactory<T> where T: DbContext
+    {
+        private readonly IServiceProvider services;
+
+        public DbContextFactory(IServiceProvider services)
+        {
+            this.services = services;
+        }
+
+        public T CreateDbContext()
+        {
+            return services.GetService<T>();
         }
     }
 }

@@ -1,24 +1,60 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using EFCoreConsoleStarter.Entities;
 
 namespace EFCoreConsoleStarter
 {
     internal class App
     {
-        private readonly BookLibraryContext context;
+        private readonly IDbContextFactory<BookLibraryContext> contextFactory;
 
-        public App(BookLibraryContext context)
+        public App(IDbContextFactory<BookLibraryContext> contextFactory)
         {
-            this.context = context;
+            this.contextFactory = contextFactory;
         }
         
         public int Run(string[] args)
         {
-            // Your code here
-            foreach (var book in context.Books)
+            // Adding an entity
+            using (var context = contextFactory.CreateDbContext())
             {
-                Console.WriteLine($"{book.Isbn} : {book.Title}");
+                // Adding a book
+                context.Add(new Book
+                {
+                    Authors = "J.R.R. Tolkien",
+                    Isbn = "9780261102385",
+                    Title = "The Lord of the Rings",
+                    PublicationDate = new DateTime(1954, 01, 01),
+                    Summary = "A hobbit and his allies go to Mordor to throw a magic ring in a volcano."
+                });
+                context.SaveChanges();
+            }
+
+            // Modifying an entity
+            using (var context = contextFactory.CreateDbContext())
+            {
+                var lotr = context.Books.First(b => b.Isbn == "9780261102385");
+                lotr.Summary = "Sauron, an evil overlord, tries to conquer the world but a band of unlikely heroes gathers to thwart his plans.";
+                context.SaveChanges();
+            }
+
+            using (var context = contextFactory.CreateDbContext())
+            {
+                foreach (var book in context.Books)
+                {
+                    Console.WriteLine($"{book.Isbn} : {book.Title}");
+                    Console.WriteLine($"{book.Summary}");
+
+                    if (book.Isbn == "9780261102385")
+                    {
+                        // Deleting an entity
+                        context.Remove(book);
+                    }
+                }
+                
+                context.SaveChanges();
             }
 
             return 1;
